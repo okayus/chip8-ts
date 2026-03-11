@@ -77,6 +77,23 @@ describe("Instruction: 8XY4 (ADD VX, VY)", () => {
 - `StackPointer` に対する push/pop 境界チェック
 - `Screen` バッファを `Uint8Array` + 型付きアクセサで管理
 
+## 開発フロー
+
+- main ブランチへの直プッシュは禁止（ブランチ保護設定済み）
+- Phase ごとにブランチを作成し、PR を通じてマージする
+- PR 作成時、実装に着手する前にまず PR の description に実装計画を記述する
+  - 何を実装するか（スコープ）
+  - ファイル構成・型設計の方針
+  - テスト方針
+- 実装計画のレビュー後、コードを実装してプッシュする
+
+### ブランチ命名規則
+
+```
+phase/{phase番号}-{短い説明}
+例: phase/1-domain-types, phase/2-decoder
+```
+
 ## 技術スタック
 
 - **言語**: TypeScript (strict mode)
