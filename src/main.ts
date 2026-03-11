@@ -26,6 +26,7 @@ let showDebug = false;
 
 function startEmulation(rom: Uint8Array, name: string) {
   emulator.reset();
+  display.clear();
   emulator.load(rom);
   running = true;
   statusEl.textContent = `Loaded: ${name} (${rom.length} bytes)`;
