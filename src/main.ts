@@ -90,6 +90,7 @@ romSelect.addEventListener("change", async () => {
 resetBtn.addEventListener("click", () => {
   emulator.reset();
   running = false;
+  display.clear();
   display.render();
   statusEl.textContent = "Reset";
 });
