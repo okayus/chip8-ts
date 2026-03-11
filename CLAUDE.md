@@ -81,11 +81,18 @@ describe("Instruction: 8XY4 (ADD VX, VY)", () => {
 
 - main ブランチへの直プッシュは禁止（ブランチ保護設定済み）
 - Phase ごとにブランチを作成し、PR を通じてマージする
-- PR 作成時、実装に着手する前にまず PR の description に実装計画を記述する
-  - 何を実装するか（スコープ）
-  - ファイル構成・型設計の方針
-  - テスト方針
-- 実装計画のレビュー後、コードを実装してプッシュする
+
+### ワークフロー
+
+1. `main` から Phase ブランチを作成 (`phase/{番号}-{短い説明}`)
+2. 実装 + テスト + lint + typecheck を全て pass させる
+3. PR を作成し、description に以下を記述:
+   - 何を実装するか（スコープ）
+   - ファイル構成・型設計の方針
+   - テスト方針
+4. セルフレビュー（diff を確認し、設計原則に沿っているか検証）
+5. 問題なければ squash merge し、リモートブランチを削除
+6. `main` を pull して次の Phase へ
 
 ### ブランチ命名規則
 
@@ -93,6 +100,13 @@ describe("Instruction: 8XY4 (ADD VX, VY)", () => {
 phase/{phase番号}-{短い説明}
 例: phase/1-domain-types, phase/2-decoder
 ```
+
+### チェックリスト (PR マージ前)
+
+- `pnpm test` — 全テスト pass
+- `pnpm typecheck` — 型チェック pass
+- `pnpm lint` — Biome lint pass
+- diff のセルフレビュー完了
 
 ## 技術スタック
 
