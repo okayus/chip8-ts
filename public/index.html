@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CHIP-8 Emulator</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a2e;
+      color: #eee;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+      min-height: 100vh;
+    }
+    h1 { margin-bottom: 1rem; color: #33ff33; }
+    canvas {
+      border: 2px solid #33ff33;
+      image-rendering: pixelated;
+      margin-bottom: 1rem;
+    }
+    .controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    label {
+      background: #33ff33;
+      color: #1a1a2e;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    input[type="file"] { display: none; }
+    #status { color: #888; font-size: 0.9rem; }
+    .keymap {
+      margin-top: 1.5rem;
+      font-size: 0.8rem;
+      color: #666;
+      text-align: center;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <h1>CHIP-8 Emulator</h1>
+  <canvas id="display"></canvas>
+  <div class="controls">
+    <label for="rom-input">Load ROM</label>
+    <input type="file" id="rom-input" accept=".ch8,.rom,.bin">
+    <span id="status">No ROM loaded</span>
+  </div>
+  <div class="keymap">
+    Keyboard: 1234 / QWER / ASDF / ZXCV → CHIP-8: 123C / 456D / 789E / A0BF
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

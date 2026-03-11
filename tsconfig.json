@@ -3,6 +3,7 @@
     "target": "ES2024",
     "module": "Node16",
     "moduleResolution": "Node16",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "strict": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
@@ -16,5 +17,5 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "vite.config.ts"]
 }
