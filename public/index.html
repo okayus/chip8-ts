@@ -26,19 +26,61 @@
       display: flex;
       gap: 1rem;
       align-items: center;
-      margin-bottom: 1rem;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
     }
-    label {
+    .btn {
       background: #33ff33;
       color: #1a1a2e;
       padding: 0.5rem 1rem;
       cursor: pointer;
       font-weight: bold;
+      font-family: inherit;
+      font-size: inherit;
+      border: none;
     }
+    .btn:hover { background: #66ff66; }
+    .btn.secondary { background: #555; color: #eee; }
+    .btn.secondary:hover { background: #777; }
+    label.btn { display: inline-block; }
     input[type="file"] { display: none; }
-    #status { color: #888; font-size: 0.9rem; }
+    select {
+      background: #2a2a4e;
+      color: #eee;
+      border: 1px solid #33ff33;
+      padding: 0.5rem;
+      font-family: inherit;
+      font-size: inherit;
+    }
+    #status { color: #888; font-size: 0.9rem; margin-bottom: 1rem; }
+    .debug-panel {
+      display: none;
+      background: #0a0a1e;
+      border: 1px solid #333;
+      padding: 1rem;
+      margin-top: 1rem;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      width: 640px;
+      max-width: 100%;
+    }
+    .debug-panel.visible { display: block; }
+    .debug-panel h3 { color: #33ff33; margin-bottom: 0.5rem; }
+    .debug-registers {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.25rem;
+    }
+    .debug-registers span { color: #aaa; }
+    .debug-registers .value { color: #33ff33; }
+    .debug-meta {
+      margin-top: 0.5rem;
+      color: #aaa;
+    }
+    .debug-meta .value { color: #ffaa33; }
     .keymap {
-      margin-top: 1.5rem;
+      margin-top: 1rem;
       font-size: 0.8rem;
       color: #666;
       text-align: center;
@@ -50,12 +92,27 @@
   <h1>CHIP-8 Emulator</h1>
   <canvas id="display"></canvas>
   <div class="controls">
-    <label for="rom-input">Load ROM</label>
+    <select id="rom-select">
+      <option value="">-- Sample ROMs --</option>
+      <option value="roms/PONG.ch8">Pong</option>
+      <option value="roms/TETRIS.ch8">Tetris</option>
+      <option value="roms/INVADERS.ch8">Invaders</option>
+      <option value="roms/BRIX.ch8">Brix</option>
+      <option value="roms/MAZE.ch8">Maze</option>
+    </select>
+    <label class="btn" for="rom-input">Upload ROM</label>
     <input type="file" id="rom-input" accept=".ch8,.rom,.bin">
-    <span id="status">No ROM loaded</span>
+    <button class="btn secondary" id="reset-btn">Reset</button>
+    <button class="btn secondary" id="debug-toggle">Debug</button>
+  </div>
+  <span id="status">No ROM loaded</span>
+  <div class="debug-panel" id="debug-panel">
+    <h3>Registers</h3>
+    <div class="debug-registers" id="debug-registers"></div>
+    <div class="debug-meta" id="debug-meta"></div>
   </div>
   <div class="keymap">
-    Keyboard: 1234 / QWER / ASDF / ZXCV → CHIP-8: 123C / 456D / 789E / A0BF
+    Keyboard: 1234 / QWER / ASDF / ZXCV &rarr; CHIP-8: 123C / 456D / 789E / A0BF
   </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
