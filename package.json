@@ -1,0 +1,21 @@
+{
+  "name": "chip8-ts",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "CHIP-8 emulator in TypeScript",
+  "scripts": {
+    "test": "node --experimental-strip-types --test tests/**/*.test.ts",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.11.1",
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.6",
+    "@types/node": "^25.4.0",
+    "typescript": "^5.9.3"
+  }
+}
