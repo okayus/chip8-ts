@@ -23,13 +23,19 @@ const emulator = new Emulator({ display, keyboard, audio });
 
 let running = false;
 let showDebug = false;
+let animFrameId = 0;
 
 function startEmulation(rom: Uint8Array, name: string) {
+  // 既存のループを確実に停止
+  running = false;
+  cancelAnimationFrame(animFrameId);
+
   emulator.reset();
+  display.clear();
   emulator.load(rom);
   running = true;
   statusEl.textContent = `Loaded: ${name} (${rom.length} bytes)`;
-  requestAnimationFrame(mainLoop);
+  animFrameId = requestAnimationFrame(mainLoop);
 }
 
 function updateDebugPanel() {
@@ -64,7 +70,7 @@ function mainLoop() {
   display.render();
   updateDebugPanel();
 
-  requestAnimationFrame(mainLoop);
+  animFrameId = requestAnimationFrame(mainLoop);
 }
 
 // ROM file upload
@@ -88,8 +94,9 @@ romSelect.addEventListener("change", async () => {
 
 // Reset button
 resetBtn.addEventListener("click", () => {
-  emulator.reset();
   running = false;
+  cancelAnimationFrame(animFrameId);
+  emulator.reset();
   display.clear();
   display.render();
   statusEl.textContent = "Reset";
