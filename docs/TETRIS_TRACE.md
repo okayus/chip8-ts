@@ -2,6 +2,310 @@
 
 TETRIS.ch8 (494バイト) を読み込み、最初のブロックが落ちるまでの全関数の入出力をトレースする。
 
+---
+
+## ファイル構成と各関数の責務
+
+### レイヤー構成
+
+```
+src/
+├── domain/          ← 値の定義層 (型・定数・命令セット)
+│   ├── types.ts
+│   ├── instruction.ts
+│   └── font.ts
+├── cpu/             ← CPU パイプライン層 (fetch → decode → execute)
+│   ├── fetch.ts
+│   ├── decode.ts
+│   ├── execute.ts
+│   └── state.ts
+├── emulator/        ← 統合層 (CPU + Memory を束ねるオーケストレーター)
+│   ├── emulator.ts
+│   └── memory.ts
+├── peripherals/     ← 周辺機器のインターフェース定義
+│   └── interfaces.ts
+├── frontend/        ← ブラウザ実装 (インターフェースの具象クラス)
+│   ├── canvas-display.ts
+│   ├── keyboard-input.ts
+│   └── web-audio-beeper.ts
+└── main.ts          ← エントリーポイント (DOM + ゲームループ)
+```
+
+### 各ファイルの責務と公開関数
+
+#### `domain/types.ts` — 値の型安全性
+
+CHIP-8 のデータ幅を TypeScript の型システムで表現する。
+全ての数値を Branded Type でラップし、スマートコンストラクタでバリデーションする。
+
+| 型 | 意味 | 範囲 | スマートコンストラクタ |
+|---|---|---|---|
+| `Address` | 12bit メモリアドレス | 0–4095 | `mkAddress(n): Address` |
+| `Byte` | 8bit 値 | 0–255 | `mkByte(n): Byte` |
+| `Word` | 16bit 値 (opcode) | 0–65535 | `mkWord(n): Word` |
+| `Nibble` | 4bit 値 | 0–15 | `mkNibble(n): Nibble` |
+| `RegisterIndex` | レジスタ番号 | 0–15 | `mkRegisterIndex(n): RegisterIndex` |
+
+**呼ばれ方**: 全ての層から呼ばれる。最も依存される基盤モジュール。
+
+#### `domain/instruction.ts` — 命令セットの ADT
+
+35 種の CHIP-8 命令を `tag` フィールドで判別する Discriminated Union として定義。
+
+```typescript
+type Instruction =
+  | { tag: "CLS" }
+  | { tag: "RET" }
+  | { tag: "JP"; address: Address }
+  | { tag: "DRW"; vx: RegisterIndex; vy: RegisterIndex; nibble: Nibble }
+  | ...  // 全35種
+```
+
+**呼ばれ方**: `decode()` が生成し、`execute()` が消費する。
+
+#### `domain/font.ts` — フォントスプライト
+
+`FONT_DATA: readonly Byte[]` (80バイト) — 0〜F の 16 文字、各 5 バイト。
+`FONT_START_ADDRESS = 0x000` — メモリ上のロードアドレス。
+`FONT_BYTES_PER_CHAR = 5` — LD_F_VX 命令でフォントアドレスを計算する際に使用。
+
+**呼ばれ方**: `Memory` コンストラクタがフォントデータを RAM にロード。`execute()` の `LD_F_VX` が `FONT_BYTES_PER_CHAR` を参照。
+
+#### `cpu/fetch.ts` — 命令フェッチ
+
+```typescript
+fetch(cpu: CpuState, memory: Memory): Word
+```
+
+- **入力**: `cpu.pc` (現在のプログラムカウンタ)、`memory` (RAM)
+- **処理**: `memory.readWord(cpu.pc)` で 16bit opcode を読み取り、`cpu.pc += 2`
+- **出力**: `Word` (opcode)
+- **副作用**: `cpu.pc` を 2 進める
+
+**呼ばれ方**: `Emulator.tick()` から毎 tick 1 回呼ばれる。
+
+#### `cpu/decode.ts` — 命令デコード
+
+```typescript
+decode(opcode: Word): Instruction
+```
+
+- **入力**: `Word` (16bit opcode)
+- **処理**: 上位 4bit でスイッチ → `Instruction` の判別共用体に変換
+- **出力**: `Instruction`
+- **副作用**: なし（純粋関数）
+
+**呼ばれ方**: `Emulator.tick()` から `fetch()` の戻り値を受けて呼ばれる。
+
+#### `cpu/execute.ts` — 命令実行
+
+```typescript
+execute(cpu: CpuState, memory: Memory, instruction: Instruction, peripherals: Peripherals): void
+```
+
+- **入力**: CPU 状態、メモリ、デコード済み命令、周辺機器
+- **処理**: `instruction.tag` で switch → 35 種の命令それぞれの副作用を実行
+- **出力**: なし (void)
+- **副作用**: レジスタ・PC・I・SP・DT・ST の書き換え、メモリ書き込み、Display/Keyboard/Audio の操作
+
+**呼ばれ方**: `Emulator.tick()` から `decode()` の戻り値を受けて呼ばれる。
+
+命令ごとに触る周辺機器:
+
+| 命令 | Display | Keyboard | Audio |
+|---|---|---|---|
+| `CLS` | `clear()` | | |
+| `DRW` | `xorPixel()`, `getPixel()` | | |
+| `SKP`, `SKNP` | | `isKeyPressed()` | |
+| `LD_VX_K` | | `getKeyPress()` | |
+| `LD_ST_VX` (ST→0) | | | `stopBeep()` |
+
+#### `cpu/state.ts` — CPU 状態管理
+
+```typescript
+interface CpuState {
+  v: Uint8Array       // V0–VF (16 個の 8bit レジスタ)
+  pc: Address          // プログラムカウンタ
+  i: Address           // インデックスレジスタ
+  sp: number           // スタックポインタ
+  stack: Uint16Array   // コールスタック (16 エントリ)
+  dt: Byte             // ディレイタイマー
+  st: Byte             // サウンドタイマー
+}
+
+createInitialCpuState(): CpuState     // 初期状態生成 (PC=0x200)
+stackPush(cpu, address): void          // CALL 時にリターンアドレスを積む
+stackPop(cpu): Address                 // RET 時にリターンアドレスを取り出す
+```
+
+**呼ばれ方**: `Emulator` が所有し、`fetch`/`execute` が読み書きする。
+
+#### `emulator/memory.ts` — 4KB RAM
+
+```typescript
+class Memory {
+  readByte(address: Address): Byte      // 1バイト読み取り
+  writeByte(address: Address, value: Byte): void  // 1バイト書き込み
+  readWord(address: Address): Word      // 2バイト (big-endian) 読み取り
+  loadRom(rom: Uint8Array): void        // ROM を 0x200 以降にロード
+  reset(): void                          // RAM クリア + フォント再ロード
+}
+```
+
+**呼ばれ方**: `fetch()` が `readWord` で opcode を読む。`execute()` が `readByte`/`writeByte` でスプライトデータやレジスタ退避を行う。
+
+#### `emulator/emulator.ts` — オーケストレーター
+
+```typescript
+class Emulator {
+  tick(): void         // 1命令サイクル = fetch → decode → execute
+  tickTimers(): void   // DT/ST を 1 デクリメント (60Hz で呼ぶ)
+  load(rom): void      // ROM をメモリにロード
+  reset(): void        // CPU + Memory を初期状態に戻す
+  getCpuState(): Readonly<CpuState>  // デバッグ用
+  getMemory(): Memory                // デバッグ用
+}
+```
+
+**呼ばれ方**: `main.ts` のゲームループから呼ばれる。
+
+#### `peripherals/interfaces.ts` — 周辺機器の抽象
+
+```typescript
+interface Display {
+  clear(): void
+  getPixel(x, y): boolean
+  xorPixel(x, y): boolean    // 戻り値: 元のピクセルが ON だったか (衝突判定)
+}
+interface Keyboard {
+  isKeyPressed(key: Byte): boolean
+  getKeyPress(): Byte | null  // LD_VX_K 用 (ブロッキング読み取り)
+}
+interface Audio {
+  startBeep(): void
+  stopBeep(): void
+}
+interface Peripherals { display; keyboard; audio }
+```
+
+**呼ばれ方**: `execute()` が `Peripherals` 経由で呼ぶ。具象クラスは `main.ts` で注入される。
+
+#### `frontend/canvas-display.ts` — Display の実装
+
+```typescript
+class CanvasDisplay implements Display {
+  constructor(canvas: HTMLCanvasElement)  // 10x スケール、#33ff33 ON色
+  clear(): void           // pixels[][] を全 false に
+  getPixel(x, y): boolean
+  xorPixel(x, y): boolean
+  render(): void          // pixels[][] → Canvas に一括描画 (毎フレーム呼ぶ)
+}
+```
+
+**注意**: `xorPixel` はピクセルバッファを更新するだけで Canvas には反映しない。`render()` で初めて画面に反映される。
+
+#### `frontend/keyboard-input.ts` — Keyboard の実装
+
+```typescript
+class KeyboardInput implements Keyboard {
+  constructor()  // keydown/keyup リスナーを document に登録
+  isKeyPressed(key: Byte): boolean  // SKP/SKNP 命令用
+  getKeyPress(): Byte | null         // LD_VX_K 命令用 (最後に押されたキーを返す)
+}
+```
+
+QWERTY → CHIP-8 キーマッピング: `1234/QWER/ASDF/ZXCV` → `123C/456D/789E/A0BF`
+
+#### `frontend/web-audio-beeper.ts` — Audio の実装
+
+```typescript
+class WebAudioBeeper implements Audio {
+  startBeep(): void   // 440Hz 矩形波を開始
+  stopBeep(): void    // 発振停止
+}
+```
+
+#### `main.ts` — エントリーポイント
+
+DOM 要素の取得、周辺機器の生成、Emulator の生成、ゲームループの管理を行う。
+エクスポートなし (副作用モジュール)。
+
+主要な関数:
+
+| 関数 | 責務 |
+|---|---|
+| `startEmulation(rom, name)` | 既存ループ停止 → reset → clear → load → ループ開始 |
+| `mainLoop()` | 10 tick + tickTimers + render + debug更新 → rAF で再帰 |
+| `updateDebugPanel()` | CPU 状態を DOM に反映 |
+
+---
+
+## コールフロー全体図
+
+```
+main.ts
+  │
+  ├── new CanvasDisplay(canvas)     ← Display 実装を生成
+  ├── new KeyboardInput()           ← Keyboard 実装を生成
+  ├── new WebAudioBeeper()          ← Audio 実装を生成
+  ├── new Emulator({display, keyboard, audio})  ← DI で注入
+  │
+  │  [ROM 選択時]
+  ├── startEmulation(rom, name)
+  │     ├── cancelAnimationFrame()  ← 既存ループ停止
+  │     ├── emulator.reset()
+  │     │     ├── createInitialCpuState()  → cpu
+  │     │     └── memory.reset()
+  │     │           └── memory.loadFont()  → RAM[0x000-0x04F]
+  │     ├── display.clear()         → pixels[][] = false
+  │     ├── emulator.load(rom)
+  │     │     └── memory.loadRom(rom)  → RAM[0x200-...]
+  │     └── requestAnimationFrame(mainLoop)
+  │
+  │  [毎フレーム (60Hz)]
+  └── mainLoop()
+        ├── emulator.tick()  ×10回
+        │     ├── fetch(cpu, memory)
+        │     │     └── memory.readWord(cpu.pc)  → Word
+        │     ├── decode(word)                    → Instruction
+        │     └── execute(cpu, memory, instruction, peripherals)
+        │           ├── [CLS]  → display.clear()
+        │           ├── [DRW]  → display.xorPixel(x, y)
+        │           ├── [SKP]  → keyboard.isKeyPressed(key)
+        │           ├── [SKNP] → keyboard.isKeyPressed(key)
+        │           ├── [LD_VX_K] → keyboard.getKeyPress()
+        │           ├── [LD_ST_VX] → (ST が 0 になったら) audio.stopBeep()
+        │           ├── [CALL] → stackPush(cpu, pc)
+        │           ├── [RET]  → stackPop(cpu)
+        │           └── ... (他 28 命令はレジスタ/メモリ操作のみ)
+        │
+        ├── emulator.tickTimers()
+        │     ├── cpu.dt > 0 → cpu.dt -= 1
+        │     └── cpu.st > 0 → cpu.st -= 1 → (st==0 なら audio.stopBeep())
+        │
+        ├── display.render()         ← pixels[][] → Canvas 反映
+        └── updateDebugPanel()       ← cpu state → DOM 反映
+
+
+  [DRW 命令の内部フロー (execute 内)]
+  execute(DRW vx, vy, n)
+    ├── xPos = cpu.v[vx] % 64
+    ├── yPos = cpu.v[vy] % 32
+    ├── cpu.v[0xF] = 0
+    └── for row = 0..n-1:
+          ├── spriteByte = memory.readByte(cpu.i + row)
+          └── for col = 0..7:
+                └── if bit set → wasOn = display.xorPixel(x+col, y+row)
+                                  if wasOn → cpu.v[0xF] = 1  (衝突)
+```
+
+---
+
+## TETRIS ROM 実行トレース (命令レベル)
+
+以下、ROM のバイナリを fetch → decode → execute のパイプラインに通し、
+最初のピースが画面に表示されるまでの全ステップを記録する。
+
 ## 記法
 
 ```
