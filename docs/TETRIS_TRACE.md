@@ -274,6 +274,110 @@ CHIP-8 にはそのような仕組みはない。
 - フレームバッファに直接アドレス指定で書く方法がない (memory[0xF00] = 1 のようなことはできない)
 - **DRW 命令の副作用としてのみ**フレームバッファにアクセスできる
 
+#### DRW はどのようにフレームバッファにアクセスしているか — 実装レベルの解説
+
+「アドレスもバスもないのに、DRW はどうやってフレームバッファに触るのか？」
+
+答えは**TypeScript のオブジェクト参照 (依存注入)**。
+実ハードウェアでは CPU とディスプレイが物理的な配線 (バス) で接続されるが、
+ソフトウェアエミュレータでは「コンストラクタでオブジェクトの参照を渡す」ことで同等の接続を表現する。
+
+**コードパスを 1 ステップずつ追う**:
+
+```
+① main.ts — フレームバッファを持つオブジェクトを生成
+   const display = new CanvasDisplay(canvas);
+   // display の内部に pixels[32][64] (フレームバッファ) が確保される
+
+② main.ts — Emulator にオブジェクト参照を渡す (依存注入 = DI)
+   const emulator = new Emulator({ display, keyboard, audio });
+   // Emulator は display への参照を保持する (配線に相当)
+
+③ emulator.ts — tick() のたびに execute() に参照を渡す
+   tick() {
+     execute(cpu, memory, instruction, this.peripherals);
+     //                                ^^^^^^^^^^^^^^^^
+     //                                display への参照が含まれている
+   }
+
+④ execute.ts — DRW 分岐で display.xorPixel() を呼ぶ
+   case "DRW":
+     if (peripherals.display.xorPixel(x, y)) {
+     //  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     //  参照を辿って CanvasDisplay のメソッドを呼び出し
+       cpu.v[0xf] = 1;
+     }
+
+⑤ canvas-display.ts — xorPixel がフレームバッファを直接操作
+   xorPixel(x, y) {
+     const wasOn = this.pixels[y][x];   // フレームバッファを読む
+     this.pixels[y][x] = !wasOn;        // フレームバッファを書く
+     return wasOn;                       // 衝突情報を返す
+   }
+```
+
+**依存注入のオブジェクト参照を図にすると**:
+
+```
+main.ts が全てのオブジェクトを生成し、参照を注入する:
+
+  ┌─────────┐
+  │ main.ts │  ← 全体を組み立てる (配線工)
+  └────┬────┘
+       │ new CanvasDisplay(canvas)
+       ▼
+  ┌──────────────┐
+  │CanvasDisplay │
+  │ .pixels[][]  │  ← フレームバッファ (64×32)
+  │ .xorPixel()  │
+  │ .render()    │
+  └──────┬───────┘
+         │ 参照を渡す { display: ← ここ }
+         ▼
+  ┌──────────────┐
+  │  Emulator    │
+  │ .peripherals │──→ display への参照を保持
+  │ .tick()      │
+  └──────┬───────┘
+         │ tick() → execute(cpu, memory, instruction, peripherals)
+         ▼
+  ┌──────────────┐
+  │ execute()    │
+  │  DRW 分岐    │──→ peripherals.display.xorPixel(x, y)
+  │              │     ↑ この呼び出しが「CPU → フレームバッファ」の配線
+  └──────────────┘
+```
+
+**実ハードウェアとの対比**:
+
+```
+実ハードウェア:
+  CPU ──[アドレスバス/データバス]──→ VRAM (物理的な配線)
+  DRW 命令 → CPU がバスにアドレスとデータを載せる → VRAM に書き込まれる
+
+ソフトウェアエミュレータ (本実装):
+  execute() ──[オブジェクト参照]──→ CanvasDisplay.pixels[][] (メソッド呼び出し)
+  DRW 命令 → execute() が peripherals.display.xorPixel(x, y) を呼ぶ → pixels が変わる
+```
+
+ハードウェアの「バスを通じた通信」を、ソフトウェアでは「メソッド呼び出し」に置き換えている。
+これがエミュレータのコアアイデアで、**物理的な接続を全てソフトウェアの関数呼び出しに変換する**のがエミュレータ開発の基本パターン。
+
+> **なぜ interface (Display) を挟むのか**:
+> `execute()` は `CanvasDisplay` を直接知らず、`Display` インターフェース経由でアクセスする。
+> ```typescript
+> // peripherals/interfaces.ts
+> interface Display {
+>   clear(): void;
+>   getPixel(x: number, y: number): boolean;
+>   xorPixel(x: number, y: number): boolean;
+> }
+> ```
+> これにより:
+> - **テスト時**: Canvas のない Node.js 環境でもモック Display で DRW をテストできる
+> - **移植時**: Canvas 以外 (WebGL、ターミナル等) への差し替えが容易
+> - **設計上**: execute() は「画面の実装」を知らず、「画面の操作」だけを知っている (関心の分離)
+
 これは意図的な設計で、画面操作を DRW に限定することで仕様がシンプルに保たれている。
 
 > **他のシステムとの比較 — フレームバッファへのアクセス方法**:
