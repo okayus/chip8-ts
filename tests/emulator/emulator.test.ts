@@ -10,6 +10,8 @@ function createMockDisplay(): Display & { pixels: boolean[][] } {
     clear() {
       for (const row of pixels) row.fill(false);
     },
+    beginDrawBatch() {},
+    endDrawBatch() {},
     getPixel(x: number, y: number) {
       return pixels[y][x];
     },
@@ -27,6 +29,9 @@ function createMockPeripherals(): Peripherals & { display: ReturnType<typeof cre
     display,
     keyboard: {
       isKeyPressed() {
+        return false;
+      },
+      isKeyJustPressed() {
         return false;
       },
       getKeyPress() {
