@@ -3,7 +3,7 @@ import { CanvasDisplay } from "./frontend/canvas-display.ts";
 import { KeyboardInput } from "./frontend/keyboard-input.ts";
 import { WebAudioBeeper } from "./frontend/web-audio-beeper.ts";
 
-const TICKS_PER_FRAME = 10;
+let ticksPerFrame = 10;
 
 const canvas = document.getElementById("display") as HTMLCanvasElement;
 const fileInput = document.getElementById("rom-input") as HTMLInputElement;
@@ -14,6 +14,8 @@ const debugPanel = document.getElementById("debug-panel") as HTMLElement;
 const debugRegisters = document.getElementById("debug-registers") as HTMLElement;
 const debugMeta = document.getElementById("debug-meta") as HTMLElement;
 const statusEl = document.getElementById("status") as HTMLElement;
+const speedSlider = document.getElementById("speed-slider") as HTMLInputElement;
+const speedLabel = document.getElementById("speed-label") as HTMLElement;
 
 const display = new CanvasDisplay(canvas);
 const keyboard = new KeyboardInput();
@@ -63,7 +65,7 @@ function updateDebugPanel() {
 function mainLoop() {
   if (!running) return;
 
-  for (let i = 0; i < TICKS_PER_FRAME; i++) {
+  for (let i = 0; i < ticksPerFrame; i++) {
     emulator.tick();
   }
   emulator.tickTimers();
@@ -100,6 +102,12 @@ resetBtn.addEventListener("click", () => {
   display.clear();
   display.render();
   statusEl.textContent = "Reset";
+});
+
+// Speed slider
+speedSlider.addEventListener("input", () => {
+  ticksPerFrame = Number(speedSlider.value);
+  speedLabel.textContent = `${ticksPerFrame} t/f`;
 });
 
 // Debug toggle
