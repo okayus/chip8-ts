@@ -126,6 +126,90 @@ describe("Emulator", () => {
     });
   });
 
+  describe("step", () => {
+    /** NOP パディング用ヘルパー */
+    function nopBytes(count: number): number[] {
+      return new Array(count * 2).fill(0x00);
+    }
+
+    it("CYCLES_PER_TIMER_TICK (10) ごとにタイマーが減算される", () => {
+      const p = createMockPeripherals();
+      const emu = new Emulator(p);
+      emu.load(
+        new Uint8Array([
+          0x60,
+          0x05, // LD V0, 5
+          0xf0,
+          0x15, // LD DT, V0
+          ...nopBytes(8), // 8 NOPs → 合計 10 命令
+        ]),
+      );
+      emu.step(10);
+      assert.equal(emu.getCpuState().dt, 4);
+    });
+
+    it("20 cycles で DT が 2 減算される", () => {
+      const p = createMockPeripherals();
+      const emu = new Emulator(p);
+      emu.load(
+        new Uint8Array([
+          0x60,
+          0x0a, // LD V0, 10
+          0xf0,
+          0x15, // LD DT, V0
+          ...nopBytes(18), // 18 NOPs → 合計 20 命令
+        ]),
+      );
+      emu.step(20);
+      assert.equal(emu.getCpuState().dt, 8);
+    });
+
+    it("10 cycles 未満ではタイマーが減算されない", () => {
+      const p = createMockPeripherals();
+      const emu = new Emulator(p);
+      emu.load(
+        new Uint8Array([
+          0x60,
+          0x05, // LD V0, 5
+          0xf0,
+          0x15, // LD DT, V0
+          ...nopBytes(6),
+        ]),
+      );
+      emu.step(5);
+      assert.equal(emu.getCpuState().dt, 5);
+    });
+
+    it("step() を跨いでサイクルカウンタが持続する", () => {
+      const p = createMockPeripherals();
+      const emu = new Emulator(p);
+      emu.load(
+        new Uint8Array([
+          0x60,
+          0x05, // LD V0, 5
+          0xf0,
+          0x15, // LD DT, V0
+          ...nopBytes(18),
+        ]),
+      );
+      emu.step(7); // 7 cycles, カウンタ=7
+      assert.equal(emu.getCpuState().dt, 5);
+      emu.step(3); // +3 = 10, タイマー発火
+      assert.equal(emu.getCpuState().dt, 4);
+    });
+
+    it("reset でサイクルカウンタもリセットされる", () => {
+      const p = createMockPeripherals();
+      const emu = new Emulator(p);
+      emu.load(new Uint8Array([0x60, 0x05, 0xf0, 0x15, ...nopBytes(16)]));
+      emu.step(7); // カウンタ=7
+      emu.reset();
+      emu.load(new Uint8Array([0x60, 0x05, 0xf0, 0x15, ...nopBytes(16)]));
+      emu.step(3); // reset 後なのでカウンタ=3, 発火しない
+      assert.equal(emu.getCpuState().dt, 5);
+    });
+  });
+
   it("reset で初期状態に戻る", () => {
     const p = createMockPeripherals();
     const emu = new Emulator(p);

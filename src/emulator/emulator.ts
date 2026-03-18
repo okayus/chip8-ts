@@ -7,10 +7,14 @@ import { mkByte } from "../domain/types.ts";
 import type { Peripherals } from "../peripherals/interfaces.ts";
 import { Memory } from "./memory.ts";
 
+/** Standard CHIP-8: 600 IPS / 60 Hz = 10 instructions per timer tick */
+const CYCLES_PER_TIMER_TICK = 10;
+
 export class Emulator {
   private cpu: CpuState;
   private readonly memory: Memory;
   private readonly peripherals: Peripherals;
+  private cycleCounter = 0;
 
   constructor(peripherals: Peripherals) {
     this.cpu = createInitialCpuState();
@@ -25,7 +29,19 @@ export class Emulator {
     execute(this.cpu, this.memory, instruction, this.peripherals);
   }
 
-  /** Decrement timers (call once per frame at 60Hz) */
+  /** Execute count CPU cycles with interleaved timer decrements every CYCLES_PER_TIMER_TICK instructions */
+  step(count: number): void {
+    for (let i = 0; i < count; i++) {
+      this.tick();
+      this.cycleCounter++;
+      if (this.cycleCounter >= CYCLES_PER_TIMER_TICK) {
+        this.cycleCounter = 0;
+        this.tickTimers();
+      }
+    }
+  }
+
+  /** Decrement delay/sound timers. Called by step() every CYCLES_PER_TIMER_TICK cycles */
   tickTimers(): void {
     if (this.cpu.dt > 0) {
       this.cpu.dt = mkByte(this.cpu.dt - 1);
@@ -47,6 +63,7 @@ export class Emulator {
   reset(): void {
     this.cpu = createInitialCpuState();
     this.memory.reset();
+    this.cycleCounter = 0;
   }
 
   /** Get current CPU state (for debugging) */

@@ -65,10 +65,7 @@ function updateDebugPanel() {
 function mainLoop() {
   if (!running) return;
 
-  for (let i = 0; i < ticksPerFrame; i++) {
-    emulator.tick();
-  }
-  emulator.tickTimers();
+  emulator.step(ticksPerFrame);
   display.render();
   updateDebugPanel();
 
@@ -107,7 +104,8 @@ resetBtn.addEventListener("click", () => {
 // Speed slider
 speedSlider.addEventListener("input", () => {
   ticksPerFrame = Number(speedSlider.value);
-  speedLabel.textContent = `${ticksPerFrame} t/f`;
+  const multiplier = ticksPerFrame / 10;
+  speedLabel.textContent = `${multiplier}x`;
 });
 
 // Debug toggle
