@@ -12,6 +12,14 @@ describe("decode: 0x0NNN 系", () => {
     assert.deepEqual(decode(mkWord(0x00e0)), { tag: "CLS" });
   });
 
+  it("0x00F0 → BEGIN_DRAW_BATCH", () => {
+    assert.deepEqual(decode(mkWord(0x00f0)), { tag: "BEGIN_DRAW_BATCH" });
+  });
+
+  it("0x00F1 → END_DRAW_BATCH", () => {
+    assert.deepEqual(decode(mkWord(0x00f1)), { tag: "END_DRAW_BATCH" });
+  });
+
   it("0x00EE → RET", () => {
     assert.deepEqual(decode(mkWord(0x00ee)), { tag: "RET" });
   });
@@ -142,6 +150,10 @@ describe("decode: 0xDXYN — DRW Vx, Vy, nibble", () => {
 describe("decode: 0xEXNN 系 (キー入力)", () => {
   it("0xE19E → SKP V1", () => {
     assert.deepEqual(decode(mkWord(0xe19e)), { tag: "SKP", vx: 0x1 });
+  });
+
+  it("0xE19F → JKP V1", () => {
+    assert.deepEqual(decode(mkWord(0xe19f)), { tag: "JKP", vx: 0x1 });
   });
 
   it("0xE2A1 → SKNP V2", () => {

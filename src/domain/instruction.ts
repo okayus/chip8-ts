@@ -4,6 +4,8 @@ import type { Address, Byte, Nibble, RegisterIndex } from "./types.ts";
 export type Instruction =
   | { readonly tag: "NOP" }
   | { readonly tag: "CLS" }
+  | { readonly tag: "BEGIN_DRAW_BATCH" }
+  | { readonly tag: "END_DRAW_BATCH" }
   | { readonly tag: "RET" }
   | { readonly tag: "JP"; readonly address: Address }
   | { readonly tag: "CALL"; readonly address: Address }
@@ -32,6 +34,7 @@ export type Instruction =
       readonly nibble: Nibble;
     }
   | { readonly tag: "SKP"; readonly vx: RegisterIndex }
+  | { readonly tag: "JKP"; readonly vx: RegisterIndex }
   | { readonly tag: "SKNP"; readonly vx: RegisterIndex }
   | { readonly tag: "LD_VX_DT"; readonly vx: RegisterIndex }
   | { readonly tag: "LD_VX_K"; readonly vx: RegisterIndex }

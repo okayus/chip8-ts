@@ -24,6 +24,14 @@ export function execute(
       peripherals.display.clear();
       break;
 
+    case "BEGIN_DRAW_BATCH":
+      peripherals.display.beginDrawBatch();
+      break;
+
+    case "END_DRAW_BATCH":
+      peripherals.display.endDrawBatch();
+      break;
+
     case "RET":
       cpu.pc = stackPop(cpu);
       break;
@@ -161,6 +169,12 @@ export function execute(
 
     case "SKP":
       if (peripherals.keyboard.isKeyPressed(mkByte(cpu.v[instruction.vx]))) {
+        cpu.pc = mkAddress(cpu.pc + 2);
+      }
+      break;
+
+    case "JKP":
+      if (peripherals.keyboard.isKeyJustPressed(mkByte(cpu.v[instruction.vx]))) {
         cpu.pc = mkAddress(cpu.pc + 2);
       }
       break;
