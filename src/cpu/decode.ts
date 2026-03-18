@@ -20,10 +20,6 @@ export function decode(opcode: Word): Instruction {
           return { tag: "NOP" };
         case 0x00e0:
           return { tag: "CLS" };
-        case 0x00f0:
-          return { tag: "BEGIN_DRAW_BATCH" };
-        case 0x00f1:
-          return { tag: "END_DRAW_BATCH" };
         case 0x00ee:
           return { tag: "RET" };
         default:
@@ -80,8 +76,6 @@ export function decode(opcode: Word): Instruction {
       switch (opcode & 0x00ff) {
         case 0x9e:
           return { tag: "SKP", vx: x };
-        case 0x9f:
-          return { tag: "JKP", vx: x };
         case 0xa1:
           return { tag: "SKNP", vx: x };
         default:

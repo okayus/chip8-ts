@@ -15,8 +15,6 @@ function createMockDisplay(): Display & { pixels: boolean[][] } {
     clear() {
       for (const row of pixels) row.fill(false);
     },
-    beginDrawBatch() {},
-    endDrawBatch() {},
     getPixel(x: number, y: number) {
       return pixels[y][x];
     },
@@ -31,14 +29,10 @@ function createMockDisplay(): Display & { pixels: boolean[][] } {
 function createMockKeyboard(
   pressedKeys: Set<number> = new Set(),
   pendingKey: number | null = null,
-  justPressedKeys: Set<number> = new Set(),
 ): Keyboard {
   return {
     isKeyPressed(key) {
       return pressedKeys.has(key);
-    },
-    isKeyJustPressed(key) {
-      return justPressedKeys.delete(key);
     },
     getKeyPress() {
       return pendingKey !== null ? mkByte(pendingKey) : null;
@@ -82,33 +76,6 @@ describe("execute: CLS", () => {
     const p = createPeripherals(display);
     exec({ tag: "CLS" }, p);
     assert.equal(display.pixels[0][0], false);
-  });
-});
-
-describe("execute: custom draw batch opcodes", () => {
-  it("BEGIN_DRAW_BATCH / END_DRAW_BATCH を呼び出す", () => {
-    let begins = 0;
-    let ends = 0;
-    const display: Display = {
-      clear() {},
-      beginDrawBatch() {
-        begins += 1;
-      },
-      endDrawBatch() {
-        ends += 1;
-      },
-      getPixel() {
-        return false;
-      },
-      xorPixel() {
-        return false;
-      },
-    };
-    const p = createPeripherals(display);
-    exec({ tag: "BEGIN_DRAW_BATCH" }, p);
-    exec({ tag: "END_DRAW_BATCH" }, p);
-    assert.equal(begins, 1);
-    assert.equal(ends, 1);
   });
 });
 
@@ -593,30 +560,6 @@ describe("execute: SKP (EX9E)", () => {
     cpu.v[0] = 5;
     const memory = new Memory();
     execute(cpu, memory, { tag: "SKP", vx: mkRegisterIndex(0) }, createPeripherals());
-    assert.equal(cpu.pc, 0x200);
-  });
-});
-
-describe("execute: JKP (EX9F)", () => {
-  it("just pressed なら PC += 2", () => {
-    const cpu = createInitialCpuState();
-    cpu.v[0] = 5;
-    const memory = new Memory();
-    const keyboard = createMockKeyboard(new Set(), null, new Set([5]));
-    execute(
-      cpu,
-      memory,
-      { tag: "JKP", vx: mkRegisterIndex(0) },
-      createPeripherals(undefined, keyboard),
-    );
-    assert.equal(cpu.pc, 0x202);
-  });
-
-  it("just pressed でなければ PC 変更なし", () => {
-    const cpu = createInitialCpuState();
-    cpu.v[0] = 5;
-    const memory = new Memory();
-    execute(cpu, memory, { tag: "JKP", vx: mkRegisterIndex(0) }, createPeripherals());
     assert.equal(cpu.pc, 0x200);
   });
 });

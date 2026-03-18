@@ -30,16 +30,12 @@ const KEY_MAP: Record<string, number> = {
 
 export class KeyboardInput implements Keyboard {
   private readonly pressed = new Set<number>();
-  private readonly justPressed = new Set<number>();
   private lastKeyPressed: number | null = null;
 
   constructor() {
     document.addEventListener("keydown", (e) => {
       const key = KEY_MAP[e.key.toLowerCase()];
       if (key !== undefined) {
-        if (!this.pressed.has(key)) {
-          this.justPressed.add(key);
-        }
         this.pressed.add(key);
         this.lastKeyPressed = key;
       }
@@ -55,10 +51,6 @@ export class KeyboardInput implements Keyboard {
 
   isKeyPressed(key: Byte): boolean {
     return this.pressed.has(key);
-  }
-
-  isKeyJustPressed(key: Byte): boolean {
-    return this.justPressed.delete(key);
   }
 
   getKeyPress(): Byte | null {
