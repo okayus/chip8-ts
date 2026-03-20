@@ -16,12 +16,14 @@ const debugMeta = document.getElementById("debug-meta") as HTMLElement;
 const statusEl = document.getElementById("status") as HTMLElement;
 const speedSlider = document.getElementById("speed-slider") as HTMLInputElement;
 const speedLabel = document.getElementById("speed-label") as HTMLElement;
+const timerRatioSelect = document.getElementById("timer-ratio") as HTMLSelectElement;
 
 const display = new CanvasDisplay(canvas);
 const keyboard = new KeyboardInput();
 const audio = new WebAudioBeeper();
 
 const emulator = new Emulator({ display, keyboard, audio });
+emulator.setCyclesPerTimerTick(Number(timerRatioSelect.value));
 
 let running = false;
 let showDebug = false;
@@ -65,10 +67,7 @@ function updateDebugPanel() {
 function mainLoop() {
   if (!running) return;
 
-  for (let i = 0; i < ticksPerFrame; i++) {
-    emulator.tick();
-  }
-  emulator.tickTimers();
+  emulator.step(ticksPerFrame);
   display.render();
   updateDebugPanel();
 
@@ -107,7 +106,13 @@ resetBtn.addEventListener("click", () => {
 // Speed slider
 speedSlider.addEventListener("input", () => {
   ticksPerFrame = Number(speedSlider.value);
-  speedLabel.textContent = `${ticksPerFrame} t/f`;
+  const multiplier = ticksPerFrame / 10;
+  speedLabel.textContent = `${multiplier}x`;
+});
+
+// Timer ratio select
+timerRatioSelect.addEventListener("change", () => {
+  emulator.setCyclesPerTimerTick(Number(timerRatioSelect.value));
 });
 
 // Debug toggle
