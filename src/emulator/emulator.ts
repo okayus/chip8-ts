@@ -8,18 +8,29 @@ import type { Peripherals } from "../peripherals/interfaces.ts";
 import { Memory } from "./memory.ts";
 
 /** Standard CHIP-8: 600 IPS / 60 Hz = 10 instructions per timer tick */
-const CYCLES_PER_TIMER_TICK = 10;
+const DEFAULT_CYCLES_PER_TIMER_TICK = 10;
 
 export class Emulator {
   private cpu: CpuState;
   private readonly memory: Memory;
   private readonly peripherals: Peripherals;
   private cycleCounter = 0;
+  private cyclesPerTimerTick = DEFAULT_CYCLES_PER_TIMER_TICK;
 
   constructor(peripherals: Peripherals) {
     this.cpu = createInitialCpuState();
     this.memory = new Memory();
     this.peripherals = peripherals;
+  }
+
+  /** Set the number of CPU cycles between timer decrements.
+   *  Standard CHIP-8 = 10, compiled ROMs (chip8-lang) = 50. */
+  setCyclesPerTimerTick(cycles: number): void {
+    this.cyclesPerTimerTick = Math.max(1, Math.floor(cycles));
+  }
+
+  getCyclesPerTimerTick(): number {
+    return this.cyclesPerTimerTick;
   }
 
   /** Execute one CPU cycle: fetch → decode → execute */
@@ -34,7 +45,7 @@ export class Emulator {
     for (let i = 0; i < count; i++) {
       this.tick();
       this.cycleCounter++;
-      if (this.cycleCounter >= CYCLES_PER_TIMER_TICK) {
+      if (this.cycleCounter >= this.cyclesPerTimerTick) {
         this.cycleCounter = 0;
         this.tickTimers();
       }
